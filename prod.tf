@@ -34,6 +34,37 @@ resource "aws_security_group" "prod_web" {
     }
 
     tags = {
-        "Terrform" : "true"
+        "Terraform" : "true"
+    }
+}
+
+#resource "aws_ami_launch_permission" "prod_web" {
+#    image_id    = "ami-03e7d2d88e3e9de77"
+#    account_id  = "465478892372"
+#}
+
+resource "aws_instance" "prod_web" {
+    count = 2
+
+    ami             = "ami-03e7d2d88e3e9de77"
+    instance_type   = "t2.nano"
+
+    vpc_security_group_ids = [
+        aws_security_group.prod_web.id
+    ]
+    
+    tags = {
+        "Terraform" : "true"
+    }
+}
+
+resource "aws_eip_association" "prod_web" {
+    instance_id     = aws_instance.prod_web.0.id
+    allocation_id   = aws_eip.prod_web.id
+}
+
+resource "aws_eip" "prod_web" {
+    tags = {
+        "Terraform" : "true"
     }
 }
