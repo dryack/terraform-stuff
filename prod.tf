@@ -1,8 +1,41 @@
+######### Variables ###########
+variable "web_int_incoming_allowlist" {
+    type = list(string)
+}
+variable "web_outgoing_allowlist" {
+    type = list(string)
+}
+variable "web_ext_incoming_allowlist" {
+    type = list(string)
+}
+variable "web_image_id" {
+    type = string
+}
+variable "web_instance_type" {
+    type = string
+}
+variable "web_desired_capacity" {
+    type = number
+}
+variable "web_max_size" {
+    type = number
+}
+variable "web_min_size" {
+    type = number
+}
+
+variable "azs_array" {
+    type    = list(string)
+    default = ["us-west-2a", "us-west-2c"]
+}
+
+######### Provider ###########
 provider "aws" {
     profile = "default"
     region = "us-west-2"
 }   
 
+######### Resources ###########
 resource "aws_s3_bucket" "prod_tf_class" {
     bucket  = "dryack-tf-class-2021"
     acl     = "private"
@@ -32,19 +65,19 @@ resource "aws_security_group" "prod_web" {
         from_port   = 80
         to_port     = 80
         protocol    = "tcp"
-        cidr_blocks = ["172.31.0.0/16"]
+        cidr_blocks = var.web_int_incoming_allowlist
     }
     ingress {
         from_port   = 443
         to_port     = 443
         protocol    = "tcp"
-        cidr_blocks = ["172.31.0.0/16"]
+        cidr_blocks = var.web_int_incoming_allowlist
     }
     egress {
         from_port   = 0
         to_port     = 0
         protocol    = -1
-        cidr_blocks = ["0.0.0.0/0", "0.0.0.0/0"]
+        cidr_blocks = var.web_outgoing_allowlist
     }
 
     tags = {
@@ -61,29 +94,24 @@ resource "aws_security_group" "prod_elb" {
         from_port   = 80
         to_port     = 80
         protocol    = "tcp"
-        cidr_blocks = ["23.124.108.20/32", "149.56.26.83/32"]
+        cidr_blocks = var.web_ext_incoming_allowlist
     }
     ingress {
         from_port   = 443
         to_port     = 443
         protocol    = "tcp"
-       #cidr_blocks = ["23.124.108.20/32", "149.56.26.83/32"]
+       #cidr_blocks = var.web_ext_incoming_allowlist
     }
     egress {
         from_port   = 0
         to_port     = 0
         protocol    = -1
-        cidr_blocks = ["0.0.0.0/0", "0.0.0.0/0"]
+        cidr_blocks = var.web_outgoing_allowlist
     }
 
     tags = {
         "Terraform" : "true"
     }
-}
-
-variable "azs_array" {
-    type    = list(string)
-    default = ["us-west-2a", "us-west-2c"]
 }
 
 resource "aws_elb" "prod_web" {
@@ -107,8 +135,8 @@ resource "aws_elb" "prod_web" {
 
 resource "aws_launch_template" "prod_web" {
   name_prefix   = "prod-web"
-  image_id      = "ami-03e7d2d88e3e9de77"
-  instance_type = "t2.nano"
+  image_id      = var.web_image_id
+  instance_type = var.web_instance_type
   vpc_security_group_ids = [aws_security_group.prod_web.id]
 
     tags = {
@@ -119,9 +147,9 @@ resource "aws_launch_template" "prod_web" {
 resource "aws_autoscaling_group" "prod_web" {
   #availability_zones    = ["us-west-2a","us-west-2c"]
   vpc_zone_identifier   = [aws_default_subnet.default_az1.id, aws_default_subnet.default_az2.id]
-  desired_capacity      = 2
-  max_size              = 2
-  min_size              = 1
+  desired_capacity      = var.web_desired_capacity
+  max_size              = var.web_max_size
+  min_size              = var.web_min_size
 
   launch_template {
     id      = aws_launch_template.prod_web.id
